@@ -1,4 +1,7 @@
+import datetime
+
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class Genres(models.Model):
@@ -45,6 +48,10 @@ class Titles(models.Model):
         verbose_name='Название',
     )
     year = models.IntegerField(
+        validators=(
+            MinValueValidator(1),
+            MaxValueValidator(datetime.date.today().year),
+        ),
         verbose_name='Год выпуска',
     )
     description = models.TextField(
