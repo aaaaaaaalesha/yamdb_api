@@ -4,7 +4,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
-class Genres(models.Model):
+class Genre(models.Model):
     name = models.CharField(
         max_length=256,
         verbose_name='Название',
@@ -23,7 +23,7 @@ class Genres(models.Model):
         return str(self.name)
 
 
-class Categories(models.Model):
+class Category(models.Model):
     name = models.CharField(
         max_length=256,
         verbose_name='Название',
@@ -42,7 +42,7 @@ class Categories(models.Model):
         return str(self.name)
 
 
-class Titles(models.Model):
+class Title(models.Model):
     name = models.CharField(
         max_length=256,
         verbose_name='Название',
@@ -61,11 +61,11 @@ class Titles(models.Model):
         verbose_name='Описание',
     )
     genre = models.ManyToManyField(
-        Genres,
+        Genre,
         verbose_name='Жанр',
     )
     category = models.ForeignKey(
-        Categories,
+        Category,
         on_delete=models.CASCADE,
         related_name='category',
     )

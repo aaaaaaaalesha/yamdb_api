@@ -2,15 +2,15 @@ from rest_framework import serializers
 from django.db import models
 
 from reviews.models import (
-    Genres,
-    Categories,
-    Titles,
+    Genre,
+    Category,
+    Title,
 )
 
 
 class GenreSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Genres
+        model = Genre
         fields = (
             'name',
             'slug',
@@ -19,7 +19,7 @@ class GenreSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
-        model = Categories
+        model = Category
         fields = (
             'name',
             'slug',
@@ -29,16 +29,16 @@ class CategorySerializer(serializers.ModelSerializer):
 class TitleModifySerializer(serializers.ModelSerializer):
     genre = serializers.SlugRelatedField(
         slug_field='slug',
-        queryset=Categories.objects.all(),
+        queryset=Category.objects.all(),
         many=True,
     )
     category = serializers.SlugRelatedField(
         slug_field='slug',
-        queryset=Genres.objects.all(),
+        queryset=Genre.objects.all(),
     )
 
     class Meta:
-        model = Titles
+        model = Title
         fields = (
             'id',
             'name',
@@ -55,7 +55,7 @@ class TitleSerializer(serializers.ModelSerializer):
     category = CategorySerializer()
 
     class Meta:
-        model = Titles
+        model = Title
         fields = (
             'id',
             'name',
