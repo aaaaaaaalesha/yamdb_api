@@ -47,7 +47,8 @@ class Titles(models.Model):
         max_length=256,
         verbose_name='Название',
     )
-    year = models.IntegerField(
+    year = models.PositiveSmallIntegerField(
+        # From 1 to current year.
         validators=(
             MinValueValidator(1),
             MaxValueValidator(datetime.date.today().year),
