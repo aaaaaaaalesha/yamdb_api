@@ -98,53 +98,6 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ('id', 'author', 'text', 'score', 'pub_date')
 
 
-# class ReviewSerializer(serializers.ModelSerializer):
-#     author = serializers.SlugRelatedField(
-#         read_only=True,
-#         slug_field='username',
-#         default=fields.CurrentUserDefault()
-#     )
-#
-#     def validate(self, data):
-#         request = self.context['request']
-#         if request.method != 'POST':
-#             return data
-#
-#         author_ = request.user
-#         title_ = self.context['view'].kwargs.get('title_id')
-#         if Review.objects.filter(author=author_, title=title_).exists():
-#             raise ValidationError('This review already exists')
-#
-#         return data
-#
-#     class Meta:
-#         model = Review
-#         fields = (
-#             'author',
-#             'text',
-#             'pub_date',
-#             'score',
-#         )
-#         read_only_fields = ('title',)
-#
-#
-# class CommentSerializer(serializers.ModelSerializer):
-#     author = serializers.SlugRelatedField(
-#         read_only=True,
-#         slug_field='username',
-#         default=fields.CurrentUserDefault()
-#     )
-#
-#     class Meta:
-#         model = Comment
-#         fields = (
-#             'text',
-#             'author',
-#             'pub_date',
-#         )
-#         read_only_fields = ('pub_date',)
-
-
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(
         max_length=254,
