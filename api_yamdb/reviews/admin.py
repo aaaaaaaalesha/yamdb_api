@@ -9,6 +9,7 @@ from .models import (
 EMPTY_VALUE_DISPLAY = '-пусто-'
 
 
+@admin.register(Genre)
 class GenreAdmin(admin.ModelAdmin):
     list_display = (
         'pk',
@@ -20,6 +21,7 @@ class GenreAdmin(admin.ModelAdmin):
     empty_value_display = EMPTY_VALUE_DISPLAY
 
 
+@admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = (
         'pk',
@@ -31,6 +33,7 @@ class CategoryAdmin(admin.ModelAdmin):
     empty_value_display = EMPTY_VALUE_DISPLAY
 
 
+@admin.register(Title)
 class TitleAdmin(admin.ModelAdmin):
     list_display = (
         'pk',
@@ -43,8 +46,3 @@ class TitleAdmin(admin.ModelAdmin):
     search_fields = ('name', 'year', 'category')
     list_filter = ('year',)
     empty_value_display = EMPTY_VALUE_DISPLAY
-
-
-admin.site.register(Genre, GenreAdmin)
-admin.site.register(Category, CategoryAdmin)
-admin.site.register(Title, TitleAdmin)

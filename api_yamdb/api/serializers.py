@@ -1,11 +1,16 @@
 from rest_framework import serializers
-from django.db import models
+from django.core import validators
 
 from reviews.models import (
     Genre,
     Category,
     Title,
+    Review,
+    Comment,
+    User,
 )
+
+from .validators import me_username_validator
 
 
 class GenreSerializer(serializers.ModelSerializer):
@@ -26,48 +31,145 @@ class CategorySerializer(serializers.ModelSerializer):
         )
 
 
-class TitleModifySerializer(serializers.ModelSerializer):
+class TitleSerializer(serializers.ModelSerializer):
+    # We don't need to store it in model.
+    rating = serializers.FloatField(read_only=True)
+
+    class Meta:
+        model = Title
+        fields = '__all__'
+
+
+class TitleModifySerializer(TitleSerializer):
     genre = serializers.SlugRelatedField(
         slug_field='slug',
-        queryset=Category.objects.all(),
+        queryset=Genre.objects.all(),
         many=True,
     )
     category = serializers.SlugRelatedField(
         slug_field='slug',
-        queryset=Genre.objects.all(),
+        queryset=Category.objects.all(),
+        required=False,
+    )
+
+
+class TitleReadSerializer(TitleSerializer):
+    genre = GenreSerializer(
+        many=True,
+        read_only=True,
+    )
+    category = CategorySerializer(
+        read_only=True,
+    )
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'bio',
+            'role',
+        )
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True,
     )
 
     class Meta:
-        model = Title
-        fields = (
-            'id',
-            'name',
-            'year',
-            'description',
-            'genre',
-            'category',
-        )
+        model = Comment
+        fields = ('id', 'text', 'author', 'pub_date')
 
 
-class TitleSerializer(serializers.ModelSerializer):
-    rating = serializers.SerializerMethodField(method_name='get_mean_score')
-    genre = GenreSerializer(many=True)
-    category = CategorySerializer()
+class ReviewSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(
+        slug_field='username',
+        read_only=True,
+    )
 
     class Meta:
-        model = Title
-        fields = (
-            'id',
-            'name',
-            'year',
-            'rating',
-            'description',
-            'genre',
-            'category',
-        )
+        model = Review
+        fields = ('id', 'author', 'text', 'score', 'pub_date')
 
-    def get_mean_score(self, obj):
-        """Calculates rating as mean scores value."""
-        return obj.reviews.aggregate(
-            models.Avg('score')
-        ).get('score__avg')
+
+# class ReviewSerializer(serializers.ModelSerializer):
+#     author = serializers.SlugRelatedField(
+#         read_only=True,
+#         slug_field='username',
+#         default=fields.CurrentUserDefault()
+#     )
+#
+#     def validate(self, data):
+#         request = self.context['request']
+#         if request.method != 'POST':
+#             return data
+#
+#         author_ = request.user
+#         title_ = self.context['view'].kwargs.get('title_id')
+#         if Review.objects.filter(author=author_, title=title_).exists():
+#             raise ValidationError('This review already exists')
+#
+#         return data
+#
+#     class Meta:
+#         model = Review
+#         fields = (
+#             'author',
+#             'text',
+#             'pub_date',
+#             'score',
+#         )
+#         read_only_fields = ('title',)
+#
+#
+# class CommentSerializer(serializers.ModelSerializer):
+#     author = serializers.SlugRelatedField(
+#         read_only=True,
+#         slug_field='username',
+#         default=fields.CurrentUserDefault()
+#     )
+#
+#     class Meta:
+#         model = Comment
+#         fields = (
+#             'text',
+#             'author',
+#             'pub_date',
+#         )
+#         read_only_fields = ('pub_date',)
+
+
+class RegistrationSerializer(serializers.Serializer):
+    email = serializers.EmailField(
+        max_length=254,
+    )
+    username = serializers.CharField(
+        max_length=150,
+        validators=(
+            validators.RegexValidator(r'^[\w.@+-]+\Z'),
+            me_username_validator,
+        )
+    )
+
+
+class GetJWTokenSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length=150,
+        validators=(
+            validators.RegexValidator(r'^[\w.@+-]+\Z'),
+            me_username_validator,
+        )
+    )
+    confirmation_code = serializers.CharField(
+        # For fixed length = CONFIRMATION_CODE_SIZE.
+        validators=(validators.MinLengthValidator(
+            User.CONFIRMATION_CODE_SIZE
+        ),),
+        max_length=User.CONFIRMATION_CODE_SIZE,
+    )
