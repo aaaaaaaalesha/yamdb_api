@@ -31,7 +31,7 @@ from reviews.models import (
     Title,
     User,
     Review,
-    Comment
+    Comment,
 )
 
 from .permissions import (
