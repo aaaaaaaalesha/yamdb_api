@@ -1,11 +1,53 @@
-from rest_framework import serializers
+from django.conf import settings
+from django.core import validators
 from django.db import models
+from rest_framework import serializers
 
-from reviews.models import (
-    Genre,
-    Category,
-    Title,
-)
+from reviews.models import Category, Genre, Title, User
+
+from .validators import me_username_validator
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            'username',
+            'email',
+            'first_name',
+            'last_name',
+            'bio',
+            'role',
+        )
+
+
+class RegistrationSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(
+        max_length=254,
+    )
+    username = serializers.CharField(
+        max_length=150,
+        validators=(
+            validators.RegexValidator(r'^[\w.@+-]+\Z'),
+            me_username_validator,
+        )
+    )
+
+
+class TokenSerializer(serializers.Serializer):
+    username = serializers.CharField(
+        max_length=150,
+        validators=(
+            validators.RegexValidator(r'^[\w.@+-]+\Z'),
+            me_username_validator,
+        )
+    )
+    confirmation_code = serializers.CharField(
+        validators=(validators.MinLengthValidator(
+            settings.CONFIRMATION_CODE_SIZE
+        ),),
+        max_length=settings.CONFIRMATION_CODE_SIZE,
+    )
 
 
 class GenreSerializer(serializers.ModelSerializer):
