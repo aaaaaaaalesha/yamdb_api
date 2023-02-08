@@ -1,7 +1,41 @@
 import datetime
 
+from django.contrib.auth.models import AbstractUser
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.core.validators import MinValueValidator, MaxValueValidator
+
+
+class User(AbstractUser):
+    class Roles(models.TextChoices):
+        USER = 'user'
+        MODERATOR = 'moderator'
+        ADMIN = 'admin'
+
+    email = models.EmailField(
+        max_length=254,
+        unique=True,
+        verbose_name='Email',
+    )
+
+    bio = models.TextField(
+        null=True,
+        blank=True,
+        verbose_name='Биография'
+    )
+    role = models.CharField(
+        max_length = 10,
+        choices=Roles.choices,
+        default=Roles.USER,
+        verbose_name='Роль',
+    )
+
+    @property
+    def is_admin(self):
+        return self.role == 'admin'
+
+    @property
+    def is_moderator(self):
+        return self.role == 'moderator'
 
 
 class Genre(models.Model):
