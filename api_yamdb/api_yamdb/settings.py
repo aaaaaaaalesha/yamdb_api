@@ -123,9 +123,8 @@ SIMPLE_JWT = {
     'SIGNING_KEY': SECRET_KEY,
 }
 
-
 # Email configuration
 EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
 EMAIL_FILE_PATH = os.path.join(BASE_DIR, 'sent_emails')
 
-CONFIRMATION_CODE_SIZE=5
+CONFIRMATION_CODE_SIZE = 5
