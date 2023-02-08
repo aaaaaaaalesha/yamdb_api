@@ -104,13 +104,13 @@ class TitleViewSet(viewsets.ModelViewSet):
         return TitleReadSerializer
 
 
+@action(detail=False, methods=COMMON_METHODS)
 class ReviewViewSet(viewsets.ModelViewSet):
     serializer_class = ReviewSerializer
     permission_classes = (
         IsAuthenticatedOrReadOnly,
         IsAuthorOrStaffOrReadOnly,
     )
-    http_method_names = COMMON_METHODS
 
     def get_queryset(self):
         title = Title.objects.get(id=self.kwargs.get('title_id'))
@@ -139,13 +139,13 @@ class ReviewViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
 
+@action(detail=False, methods=COMMON_METHODS)
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = (
         IsAuthenticatedOrReadOnly,
         IsAuthorOrStaffOrReadOnly,
     )
-    http_method_names = COMMON_METHODS
 
     def get_queryset(self):
         review = get_object_or_404(
@@ -191,6 +191,7 @@ class UserViewSet(viewsets.ModelViewSet):
     search_fields = ('username',)
     # for /users/{username}/
     lookup_field = 'username'
+
     http_method_names = COMMON_METHODS
 
     @action(

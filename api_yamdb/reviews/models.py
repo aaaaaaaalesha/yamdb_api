@@ -1,6 +1,7 @@
 import datetime
 
 from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 from django.db import models
 from django.core.validators import (
     MinValueValidator,
@@ -93,7 +94,7 @@ class Title(models.Model):
 
 
 class User(AbstractUser):
-    CONFIRMATION_CODE_SIZE = 5
+    CONFIRMATION_CODE_SIZE = settings.CONFIRMATION_CODE_SIZE
 
     class Roles(models.TextChoices):
         USER = 'user'
