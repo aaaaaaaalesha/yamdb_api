@@ -63,7 +63,112 @@ $ python3 .\api_yamdb\manage.py runserver
 
 Некоторые примеры запросов к API.
 
-... `TODO`
+### 1. Регистрация нового пользователя
+
+Получить код подтверждения на переданный `email`. Права доступа: Доступно без токена. Использовать имя 'me' в качестве `username` запрещено. Поля `email` и username должны быть уникальными.
+
+`[POST] /api/v1/auth/signup/`
+
+```json
+{
+  "email": "bla2132143@yandex.ru",
+  "username": "login123"
+}
+```
+
+- `Status Code: 200`
+
+```json
+{
+  "email": "bla2132143@yandex.ru",
+  "username": "login123"
+}
+```
+При этом пользователю приходит письмо следующего содержания:
+
+```
+From: yamdb@yandex.ru
+To: bla2132143@yandex.ru
+Date: Wed, 08 Feb 2023 17:48:42 -0000
+Message-ID: <167587852265.2372.2942627407382418585@PC>
+
+Привет, login123!
+Нам пришёл запрос на регистрацию от Вас. Если это были не Вы, игнорируйте это письмо!
+Ваш код подтверждения: OCMH5
+Для окончания регистрации Вам необходимо выполнить запрос:
+[POST] /auth/token/
+{
+  "username": "login123",
+  "confirmation_code": "OCMH5"
+}
+```
+
+### 2. Получение JWT-токена
+
+Получение JWT-токена в обмен на username и confirmation code. Права доступа: Доступно без токена.
+
+`[POST] /api/v1/auth/token/`
+
+```json
+{
+  "username": "login123",
+  "confirmation_code": "OCMH5"
+}
+```
+
+- `Status Code: 200`
+
+```json
+{
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNjc4Mjk4MDk4LCJpYXQiOjE2NzU4Nzg4OTgsImp0aSI6ImFhOWY1ZjZlMmE2MzQzMGE5MjhkMWI1Yjg0NTNmYWFhIiwidXNlcl9pZCI6MX0.ipOVw6wvRs57COYm8J0ozm-HzHrcX9Rqm6taxr74Xe4"
+}
+```
+
+### 3. Добавление новой категории
+
+Создать категорию. Права доступа: Администратор. Поле slug каждой категории должно быть уникальным.
+
+`[POST] /api/v1/categories/`
+
+```json
+{
+  "name": "Фильм",
+  "slug": "film"
+}
+```
+
+- `Status Code: 201`
+
+```json
+{
+  "name": "Фильм",
+  "slug": "film"
+}
+```
+
+### 3. Добавление нового жанра
+
+Добавить жанр. Права доступа: Администратор. Поле slug каждого жанра должно быть уникальным.
+
+`[POST] /api/v1/genres/`
+
+```json
+{
+  "name": "Боевик",
+  "slug": "action"
+}
+```
+
+- `Status Code: 201`
+
+```json
+{
+  "name": "Боевик",
+  "slug": "action"
+}
+```
+
+Более подробную информацию можно посмотреть при запуске проекта на странице Redoc: http://127.0.0.1:8000/redoc/
 
 ## Авторы
 
