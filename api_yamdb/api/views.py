@@ -1,23 +1,59 @@
 import random
 import string
 
-from django.conf import settings
 from django.core import mail
 from django.db import models
-from rest_framework import (filters, mixins, permissions, status, views,
-                            viewsets)
-from rest_framework.decorators import action
-from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import IsAuthenticated
+from django.shortcuts import get_object_or_404
+
+from rest_framework import (
+    mixins,
+    viewsets,
+    views,
+    permissions,
+    filters,
+    status,
+)
+from rest_framework.permissions import (
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly
+)
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from rest_framework_simplejwt import tokens
 
-from reviews.models import Category, Genre, Title, User
+from django_filters.rest_framework import DjangoFilterBackend
 
-from .permissions import IsAdmin
-from .serializers import (CategorySerializer, GenreSerializer,
-                          RegistrationSerializer, TitleModifySerializer,
-                          TitleSerializer, TokenSerializer, UserSerializer)
+from .filters import TitleFilter
+
+from reviews.models import (
+    Genre,
+    Category,
+    Title,
+    User,
+    Review,
+    Comment,
+)
+
+from .permissions import (
+    IsAuthorOrStaffOrReadOnly,
+    IsAdmin,
+    IsAdminOrReadOnly,
+)
+
+from .serializers import (
+    GenreSerializer,
+    CategorySerializer,
+    TitleModifySerializer,
+    TitleReadSerializer,
+    ReviewSerializer,
+    CommentSerializer,
+    UserSerializer,
+    RegistrationSerializer,
+    GetJWTokenSerializer,
+)
+
+# To not allow http-PUT method.
+COMMON_METHODS = ('get', 'post', 'patch', 'delete')
 
 
 class GenreViewSet(
@@ -28,8 +64,11 @@ class GenreViewSet(
 ):
     queryset = Genre.objects.all()
     serializer_class = GenreSerializer
-    # permission_classes =
-    pagination_class = LimitOffsetPagination
+    permission_classes = (IsAdminOrReadOnly,)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('name',)
+    # for delete /genres/{slug}/
+    lookup_field = 'slug'
 
 
 class CategoryViewSet(
@@ -40,29 +79,120 @@ class CategoryViewSet(
 ):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    # permission_classes =
-    pagination_class = LimitOffsetPagination
+    permission_classes = (IsAdminOrReadOnly,)
+    filter_backends = (filters.SearchFilter,)
+    search_fields = ('name',)
+    # for delete /categories/{slug}/
+    lookup_field = 'slug'
 
 
 class TitleViewSet(viewsets.ModelViewSet):
-    queryset = Title.objects.all()
-    # permission_classes =
-    pagination_class = LimitOffsetPagination
+    permission_classes = (IsAdminOrReadOnly,)
+    filter_backends = (DjangoFilterBackend,)
+    filterset_class = TitleFilter
+    search_fields = ('genre',)
+    http_method_names = COMMON_METHODS
+
+    def get_queryset(self):
+        return Title.objects.annotate(
+            rating=models.Avg('reviews__score')
+        )
 
     def get_serializer_class(self):
-        if self.request.method in ('POST', 'PATCH'):
+        if self.request.method not in permissions.SAFE_METHODS:
             return TitleModifySerializer
-        return TitleSerializer
+        return TitleReadSerializer
 
 
-@action(detail=False, methods=['get', 'post', 'patch', 'delete'])
-class UsersViewSet(viewsets.ModelViewSet):
+@action(detail=False, methods=COMMON_METHODS)
+class ReviewViewSet(viewsets.ModelViewSet):
+    serializer_class = ReviewSerializer
+    permission_classes = (
+        IsAuthenticatedOrReadOnly,
+        IsAuthorOrStaffOrReadOnly,
+    )
+
+    def get_queryset(self):
+        title = Title.objects.get(id=self.kwargs.get('title_id'))
+        return title.reviews.all()
+
+    def create(self, request, *args, **kwargs):
+        title = get_object_or_404(Title, id=self.kwargs['title_id'])
+        serializer = ReviewSerializer(data=request.data)
+
+        if title.reviews.filter(author=self.request.user).exists():
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save(author=self.request.user, title_id=title.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        review = get_object_or_404(Review, id=self.kwargs.get('pk'),
+                                   title__id=self.kwargs.get('title_id'))
+
+        user = self.request.user
+        if user != review.author and not (user.is_admin or user.is_moderator):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer = ReviewSerializer(review, data=request.data, partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data)
+
+
+@action(detail=False, methods=COMMON_METHODS)
+class CommentViewSet(viewsets.ModelViewSet):
+    serializer_class = CommentSerializer
+    permission_classes = (
+        IsAuthenticatedOrReadOnly,
+        IsAuthorOrStaffOrReadOnly,
+    )
+
+    def get_queryset(self):
+        review = get_object_or_404(
+            Review,
+            id=self.kwargs.get('review_id'),
+            title__id=self.kwargs.get('title_id'),
+        )
+        return review.comments.all()
+
+    def create(self, request, *args, **kwargs):
+        review = get_object_or_404(
+            Review,
+            id=self.kwargs['review_id'],
+            title__id=self.kwargs.get('title_id'),
+        )
+        serializer = CommentSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save(author=self.request.user, review_id=review.id)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, *args, **kwargs):
+        comment = get_object_or_404(
+            Comment,
+            id=self.kwargs.get('pk'),
+            review__id=self.kwargs.get('review_id'),
+        )
+
+        user = self.request.user
+        if user != comment.author and not (user.is_admin or user.is_moderator):
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        serializer = CommentSerializer(comment, data=request.data,
+                                       partial=True)
+        if serializer.is_valid(raise_exception=True):
+            serializer.save()
+            return Response(serializer.data)
+
+
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = (IsAdmin,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('username',)
+    # for /users/{username}/
     lookup_field = 'username'
+
+    http_method_names = COMMON_METHODS
 
     @action(
         methods=('GET', 'PATCH',),
@@ -72,22 +202,19 @@ class UsersViewSet(viewsets.ModelViewSet):
     def me(self, request):
         if request.method == 'GET':
             serializer = UserSerializer(request.user)
-            if not serializer.is_valid():
-                return Response(
-                    serializer.errors,
-                    status=status.HTTP_400_BAD_REQUEST
-            )
             return Response(serializer.data)
+
+        # PATCH.
         serializer = UserSerializer(
-            request.user,
-            data=request.data,
-            partial=True
+            request.user, data=request.data, partial=True
         )
+
         if not serializer.is_valid():
             return Response(
                 serializer.errors,
                 status=status.HTTP_400_BAD_REQUEST
             )
+
         serializer.save(role=request.user.role)
         return Response(serializer.data)
 
@@ -111,11 +238,15 @@ class RegistrationView(views.APIView):
     ))
 
     @staticmethod
-    def generate_confirmation_code() -> str:
+    def __generate_confirmation_code() -> str:
+        """
+        Generates uppercase confirmation code with length
+        User.CONFIRMATION_CODE_SIZE from uppercase alphanumeric alphabet.
+        """
         return ''.join(
             random.choices(
                 population=string.ascii_uppercase + string.digits,
-                k=settings.CONFIRMATION_CODE_SIZE,
+                k=User.CONFIRMATION_CODE_SIZE,
             )
         )
 
@@ -130,7 +261,7 @@ class RegistrationView(views.APIView):
         fields = {
             'email': request.data.get('email'),
             'username': request.data.get('username'),
-            'confirmation_code': self.generate_confirmation_code(),
+            'confirmation_code': self.__generate_confirmation_code(),
         }
 
         mail.send_mail(
@@ -170,18 +301,18 @@ class RegistrationView(views.APIView):
         return Response(
             serializer.validated_data,
             status=status.HTTP_200_OK,
-        )    
+        )
 
 
-class TokenView(views.APIView):
+class GetJWTokenView(views.APIView):
     permission_classes = (permissions.AllowAny,)
 
     def post(self, request) -> Response:
-        serializer = TokenSerializer(data=request.data)
+        serializer = GetJWTokenSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
                 serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         fields = {
@@ -207,7 +338,3 @@ class TokenView(views.APIView):
             {'error': 'User with such params not found'},
             status=status.HTTP_404_NOT_FOUND,
         )
-
-
-
-
