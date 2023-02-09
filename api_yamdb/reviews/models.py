@@ -27,7 +27,7 @@ class Genre(models.Model):
         verbose_name_plural = 'Жанры'
 
     def __str__(self):
-        return str(self.name)
+        return self.name
 
 
 class Category(models.Model):
@@ -47,7 +47,7 @@ class Category(models.Model):
         verbose_name_plural = 'Категории'
 
     def __str__(self):
-        return str(self.name)
+        return self.name
 
 
 class Title(models.Model):
@@ -90,7 +90,7 @@ class Title(models.Model):
         verbose_name_plural = 'Произведения'
 
     def __str__(self):
-        return str(self.name)
+        return self.name
 
 
 class User(AbstractUser):
@@ -129,15 +129,11 @@ class User(AbstractUser):
 
     @property
     def is_admin(self):
-        return (self.role == self.Roles.ADMIN
-                or self.is_staff
-                or self.is_superuser)
+        return self.role == self.Roles.ADMIN
 
     @property
     def is_moderator(self):
-        return (self.role == self.Roles.MODERATOR
-                or self.is_staff
-                or self.is_superuser)
+        return self.role == self.Roles.MODERATOR
 
 
 class Review(models.Model):
