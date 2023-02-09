@@ -125,22 +125,6 @@ class ReviewViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user, title_id=title.id)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def partial_update(self, request, *args, **kwargs):
-        review = get_object_or_404(
-            Review,
-            id=self.kwargs.get('pk'),
-            title__id=self.kwargs.get('title_id'),
-        )
-
-        user = self.request.user
-        if user != review.author and not (user.is_admin or user.is_moderator):
-            return Response(status=status.HTTP_403_FORBIDDEN)
-
-        serializer = ReviewSerializer(review, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
-
 
 @action(detail=False, methods=COMMON_METHODS)
 class CommentViewSet(viewsets.ModelViewSet):
@@ -170,26 +154,6 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save(author=self.request.user, review_id=review.id)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def partial_update(self, request, *args, **kwargs):
-        comment = get_object_or_404(
-            Comment,
-            id=self.kwargs.get('pk'),
-            review__id=self.kwargs.get('review_id'),
-        )
-
-        user = self.request.user
-        if user != comment.author and not (user.is_admin or user.is_moderator):
-            return Response(status=status.HTTP_403_FORBIDDEN)
-
-        serializer = CommentSerializer(
-            comment,
-            data=request.data,
-            partial=True,
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -281,16 +245,6 @@ class RegistrationView(views.APIView):
             return Response(
                 serializer.validated_data,
                 status=status.HTTP_200_OK,
-            )
-
-        is_same_email_username = User.objects.filter(
-            models.Q(email=fields['email'])
-            | models.Q(username=fields['username'])
-        ).exists()
-        if is_same_email_username:
-            return Response(
-                {'error': 'User with such params already exists'},
-                status=status.HTTP_400_BAD_REQUEST,
             )
 
         User.objects.create(

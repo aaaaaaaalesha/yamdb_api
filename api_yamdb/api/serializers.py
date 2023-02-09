@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.core import validators
+from django.db import models
 
 from reviews.models import (
     Genre,
@@ -98,7 +99,7 @@ class ReviewSerializer(serializers.ModelSerializer):
         fields = ('id', 'author', 'text', 'score', 'pub_date')
 
 
-class RegistrationSerializer(serializers.Serializer):
+class RegistrationSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(
         max_length=254,
     )
@@ -109,6 +110,28 @@ class RegistrationSerializer(serializers.Serializer):
             me_username_validator,
         )
     )
+
+    def validate(self, attrs):
+        both_exists = User.objects.filter(
+            email=attrs['email'],
+            username=attrs['username']).exists()
+        any_exists = User.objects.filter(
+            models.Q(email=attrs['email'])
+            | models.Q(username=attrs['username'])).exists()
+
+        if (not both_exists) and any_exists:
+            raise validators.ValidationError(
+                {'error': 'User with such params already exists'}
+            )
+
+        return attrs
+
+    class Meta:
+        model = User
+        fields = (
+            'username',
+            'email',
+        )
 
 
 class GetJWTokenSerializer(serializers.Serializer):

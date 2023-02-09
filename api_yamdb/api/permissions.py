@@ -1,4 +1,8 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from reviews.models import (
+    Review,
+    Comment,
+)
 
 
 class IsAuthorOrStaffOrReadOnly(BasePermission):
