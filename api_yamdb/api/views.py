@@ -56,14 +56,12 @@ from .serializers import (
 COMMON_METHODS = ('get', 'post', 'patch', 'delete')
 
 
-class GenreViewSet(
+class BaseClassificationViewSet(
     mixins.CreateModelMixin,
     mixins.DestroyModelMixin,
     mixins.ListModelMixin,
     viewsets.GenericViewSet,
 ):
-    queryset = Genre.objects.all()
-    serializer_class = GenreSerializer
     permission_classes = (IsAdminOrReadOnly,)
     filter_backends = (filters.SearchFilter,)
     search_fields = ('name',)
@@ -71,19 +69,14 @@ class GenreViewSet(
     lookup_field = 'slug'
 
 
-class CategoryViewSet(
-    mixins.CreateModelMixin,
-    mixins.DestroyModelMixin,
-    mixins.ListModelMixin,
-    viewsets.GenericViewSet,
-):
+class GenreViewSet(BaseClassificationViewSet):
+    queryset = Genre.objects.all()
+    serializer_class = GenreSerializer
+
+
+class CategoryViewSet(BaseClassificationViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = (IsAdminOrReadOnly,)
-    filter_backends = (filters.SearchFilter,)
-    search_fields = ('name',)
-    # for delete /categories/{slug}/
-    lookup_field = 'slug'
 
 
 class TitleViewSet(viewsets.ModelViewSet):
@@ -110,33 +103,43 @@ class ReviewViewSet(viewsets.ModelViewSet):
     permission_classes = (
         IsAuthenticatedOrReadOnly,
         IsAuthorOrStaffOrReadOnly,
+        # here
     )
 
+    @staticmethod
+    def __get_title_object_or_404(*args, **kwargs):
+        return get_object_or_404(Title, *args, **kwargs)
+
     def get_queryset(self):
-        title = Title.objects.get(id=self.kwargs.get('title_id'))
+        title = self.__get_title_object_or_404(id=self.kwargs['title_id'])
         return title.reviews.all()
 
     def create(self, request, *args, **kwargs):
-        title = get_object_or_404(Title, id=self.kwargs['title_id'])
+        title = self.__get_title_object_or_404(id=self.kwargs['title_id'])
         serializer = ReviewSerializer(data=request.data)
 
         if title.reviews.filter(author=self.request.user).exists():
             return Response(status=status.HTTP_400_BAD_REQUEST)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save(author=self.request.user, title_id=title.id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save(author=self.request.user, title_id=title.id)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
-        review = get_object_or_404(Review, id=self.kwargs.get('pk'),
-                                   title__id=self.kwargs.get('title_id'))
+        review = get_object_or_404(
+            Review,
+            id=self.kwargs.get('pk'),
+            title__id=self.kwargs.get('title_id'),
+        )
 
         user = self.request.user
         if user != review.author and not (user.is_admin or user.is_moderator):
             return Response(status=status.HTTP_403_FORBIDDEN)
+
         serializer = ReviewSerializer(review, data=request.data, partial=True)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 @action(detail=False, methods=COMMON_METHODS)
@@ -147,24 +150,26 @@ class CommentViewSet(viewsets.ModelViewSet):
         IsAuthorOrStaffOrReadOnly,
     )
 
+    @staticmethod
+    def __get_review_object_or_404(*args, **kwargs):
+        return get_object_or_404(Review, *args, **kwargs)
+
     def get_queryset(self):
-        review = get_object_or_404(
-            Review,
+        review = self.__get_review_object_or_404(
             id=self.kwargs.get('review_id'),
             title__id=self.kwargs.get('title_id'),
         )
         return review.comments.all()
 
     def create(self, request, *args, **kwargs):
-        review = get_object_or_404(
-            Review,
-            id=self.kwargs['review_id'],
+        review = self.__get_review_object_or_404(
+            id=self.kwargs.get('review_id'),
             title__id=self.kwargs.get('title_id'),
         )
         serializer = CommentSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save(author=self.request.user, review_id=review.id)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(author=self.request.user, review_id=review.id)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def partial_update(self, request, *args, **kwargs):
         comment = get_object_or_404(
@@ -176,11 +181,15 @@ class CommentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user != comment.author and not (user.is_admin or user.is_moderator):
             return Response(status=status.HTTP_403_FORBIDDEN)
-        serializer = CommentSerializer(comment, data=request.data,
-                                       partial=True)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data)
+
+        serializer = CommentSerializer(
+            comment,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -206,15 +215,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
         # PATCH.
         serializer = UserSerializer(
-            request.user, data=request.data, partial=True
+            request.user,
+            data=request.data,
+            partial=True,
         )
-
-        if not serializer.is_valid():
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+        serializer.is_valid(raise_exception=True)
         serializer.save(role=request.user.role)
         return Response(serializer.data)
 
@@ -252,15 +257,11 @@ class RegistrationView(views.APIView):
 
     def post(self, request) -> Response:
         serializer = RegistrationSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer.is_valid(raise_exception=True)
 
         fields = {
-            'email': request.data.get('email'),
-            'username': request.data.get('username'),
+            'email': serializer.data['email'],
+            'username': serializer.data['username'],
             'confirmation_code': self.__generate_confirmation_code(),
         }
 
@@ -309,21 +310,12 @@ class GetJWTokenView(views.APIView):
 
     def post(self, request) -> Response:
         serializer = GetJWTokenSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        serializer.is_valid(raise_exception=True)
 
-        fields = {
-            'username': request.data.get('username'),
-            'confirmation_code': request.data.get('confirmation_code'),
-        }
-        users = User.objects.filter(username=fields['username'], )
-
+        users = User.objects.filter(username=serializer.data['username'], )
         if users.exists():
             user = users.first()
-            if user.confirmation_code != fields['confirmation_code']:
+            if user.confirmation_code != serializer.data['confirmation_code']:
                 return Response(
                     {'confirmation_code': 'incorrect code'},
                     status=status.HTTP_400_BAD_REQUEST,
