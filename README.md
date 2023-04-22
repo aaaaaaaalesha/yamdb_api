@@ -31,7 +31,7 @@ $ git clone https://github.com/aaaaaaaalesha/api_yamdb.git
 $ cd api_yamdb
 ```
 
-2. Создайте и активируйте рекламное окружение
+2. Создайте и активируйте виртуальное окружение
 
 ```
 $ python3 -m venv venv
